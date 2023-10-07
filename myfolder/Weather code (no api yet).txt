@@ -1,0 +1,43 @@
+var dataset = ee.ImageCollection('JAXA/GPM_L3/GSMaP/v6/reanalysis')
+                  .filter(ee.Filter.date('2014-02-01', '2014-02-02'));
+
+// Sort the dataset by system:time_start to ensure the images are in chronological order
+dataset = dataset.sort('system:time_start');
+
+// Get the number of images (hours) in the dataset
+var numHours = dataset.size();
+
+// Create a UI slider to select the hour
+var hourSlider = ui.Slider({
+  min: 0,
+  max: numHours.subtract(1).getInfo(),
+  value: 0,  // Initial value
+  step: 1,
+  onChange: function(value) {
+    displayHour(value);
+  }
+});
+
+// Function to update the displayed hour based on the slider value
+function displayHour(hour) {
+  // Get the image corresponding to the selected hour
+  var image = ee.Image(dataset.toList(numHours).get(hour));
+  var precipitation = image.select('hourlyPrecipRate');
+  var precipitationVis = {
+    min: 0.0,
+    max: 30.0,
+    opacity: 0.5,
+    palette: ['1621a2', 'ffffff', '03ffff', '13ff03', 'efff00', 'ffb103', 'ff2300'],
+  };
+  
+  // Remove the previous layer, if any
+  Map.layers().reset([ui.Map.Layer(precipitation, precipitationVis, 'Precipitation')]);
+}
+
+// Set the default displayed hour to 0
+displayHour(0);
+
+// Add the slider to the map
+Map.add(hourSlider);
+
+Map.setCenter(-90.7, 26.12, 2);
