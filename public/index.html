@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realm Roam</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+
+    <div id="map" style="height: 500px; width: 100%;"></div>
+
+    <script>
+        function initMap() {
+            const center = { lat: -34.397, lng: 150.644 };
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 8,
+                center: center
+            });
+        }
+
+        // Fetch the Google Maps API key from the server and load the Maps API
+        axios.get('/googlemapskey')
+            .then(response => {
+                const apiKey = response.data.key;
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
+                script.async = true;
+                script.defer = true;
+                document.body.appendChild(script);
+            });
+    </script>
+
+</body>
+
+</html>
