@@ -1,34 +1,77 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Google Earth Engine Application</title>
-    <script src="https://earthengine.googleapis.com/api.js"></script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAKmImKpoCH-5eSBysTPgrSIgKlRBhfLKs"></script>
-    <script>
-        ee.initialize('YOUR_EARTH_ENGINE_API_KEY');
-
-        function initMap() {
-            var map = new google.maps.Map(document.getElementById('map'), {
-                center: {lat: 26.12, lng: -90.7},
-                zoom: 2
-            });
-
-            var dataset = ee.ImageCollection('JAXA/GPM_L3/GSMaP/v6/reanalysis')
-                              .filter(ee.Filter.date('2014-02-01', '2014-02-02'));
-            var precipitation = dataset.select('hourlyPrecipRate');
-            var precipitationVis = {
-                min: 0.0,
-                max: 30.0,
-                opacity: 0.5,
-                palette: ['1621a2', 'ffffff', '03ffff', '13ff03', 'efff00', 'ffb103', 'ff2300'],
-            };
-
-            var precipitationLayer = ui.Map.Layer(precipitation, precipitationVis, 'Precipitation');
-            map.overlayMapTypes.push(ee.layers().getMapLayer(precipitationLayer));
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precipitation Map</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC3_Wd4jd3ODuxWnyqLMiTewH8Zax21fvE"></script>
+    <script src="https://unpkg.com/@google/earthengine@0.1.252/build/earthengine.js"></script>
+    <style>
+        #map {
+            height: 100%;
         }
-    </script>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
 </head>
-<body onload="initMap()">
-    <div id="map" style="width: 100%; height: 100%;"></div>
+<body>
+
+<div id="map"></div>
+
+<script>
+    // Authenticate with Earth Engine using your credentials
+    ee.initialize();
+
+    // Your original script code with minor modifications
+    var dataset = ee.ImageCollection('JAXA/GPM_L3/GSMaP/v6/reanalysis')
+                  .filter(ee.Filter.date('2014-02-01', '2014-02-02'));
+    dataset = dataset.sort('system:time_start');
+    var numHours = dataset.size();
+
+    // Function to update the displayed hour based on the slider value
+    function displayHour(hour) {
+        var image = ee.Image(dataset.toList(numHours).get(hour));
+        var precipitation = image.select('hourlyPrecipRate');
+        var constantImage = ee.Image.constant(1);
+        var mask = precipitation.gt(0);
+        var maskedImage = constantImage.updateMask(mask);
+        var visParams = {
+            min: 0,
+            max: 1,
+            palette: ['ffffff', '0000ff'],
+        };
+        var precipitationLayer = ui.Map.Layer(maskedImage, visParams, 'Precipitation');
+        Map.layers().reset([precipitationLayer]);
+    }
+
+    // Set the default displayed hour to 0
+    displayHour(0);
+
+    // Create the Google Map and tie it to the HTML div
+    var map = new google.maps.Map(document.getElementById('map'), {
+        center: {lat: 26.12, lng: -90.7},
+        zoom: 2,
+    });
+
+    // Create and add the Earth Engine layer to the Google Map
+    var eeMapOptions = {
+        getTileUrl: function(tile, zoom) {
+            var url = ee.Image("USGS/SRTMGL1_003").getMapId().tileBaseUrl + "/map="
+            + ee.Image("USGS/SRTMGL1_003").getMapId().mapid + "/z=" + zoom + "/x="
+            + tile.x + "/y=" + tile.y;
+            return url;
+        },
+        tileSize: new google.maps.Size(256, 256)
+    };
+
+    var eeMapType = new google.maps.ImageMapType(eeMapOptions);
+    map.overlayMapTypes.push(eeMapType);
+
+</script>
 </body>
 </html>
+
