@@ -7,7 +7,7 @@ function HeroSection() {
   return (
     <div className='hero-container'>
       <video src='/videos/video-1.mp4' autoPlay loop muted />
-      <h1>I FUCKING HATE CSS</h1>
+      <h1>Plan your next Journey</h1>
       <p>DRAGNAV</p>
       <div className='hero-btns'>
         <Button
@@ -15,16 +15,9 @@ function HeroSection() {
           buttonStyle='btn--outline'
           buttonSize='btn--large'
         >
-          THE ACTUAL LINK BUTTON
+          Click Here To Start
         </Button>
-        <Button
-          className='btns'
-          buttonStyle='btn--primary'
-          buttonSize='btn--large'
-          onClick={console.log('hey')}
-        >
-          WE DONT NEED THIS FUCKING BUTTON<i className='far fa-play-circle' />
-        </Button>
+      
       </div>
     </div>
   );
