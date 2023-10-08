@@ -13,7 +13,7 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background-color: #000000;
+            background-color: #054e35c4;
         }
 
         input, button {
@@ -21,11 +21,13 @@
         }
 
         #estimatedTime {
-            display: none; /* Hide it by default */
+            #estimatedTime {
             background-color:  #7851a9;
             color: white;
             padding: 10px;
             text-align: center;
+        }
+
         }
 
         #map {
@@ -43,20 +45,34 @@
     button:hover {
         background-color: #8b688f; /* a bit of purple shade for hover effect */
     }
+
+    /* Override default InfoWindow close button styles */
+        .gm-ui-hover-effect {
+            outline: none !important;
+        }
+
+        /* If you also want to remove the shadow around the InfoWindow */
+        .gm-style-iw {
+            box-shadow: none !important;
+        }
+
     </style>
 </head>
 
 <body>
 
-    <input type="text" id="start" placeholder="Start">
-    <input type="text" id="end" placeholder="Destination">
+    <input type="text" id="start" placeholder="Start" onkeydown="checkForEnter(event)">
+    <input type="text" id="end" placeholder="Destination" onkeydown="checkForEnter(event)">    
     <button onclick="onCalculateRoute()">Calculate Route</button> 
     <div id="estimatedTime">Estimated Time: <span id="timeValue">...</span></div>
     <div id="map"></div>
 
     <script>
         let GOOGLE_MAPS_API_KEY;
-        let directionsService, directionsRenderer, map;
+        let directionsService, directionsRenderer;
+        let currentPolyline = null;
+        let infoWindow = null;
+
 
         // Fetch the Google Maps API key from the server
         axios.get('/googlemapskey')
@@ -196,6 +212,8 @@
             // ... Continue with the rest of your initializations ...
 
             directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
             directionsRenderer = new google.maps.DirectionsRenderer({
                 draggable: true,
                 map: map,
@@ -213,57 +231,86 @@
             calculateAndDisplayRoute(start, end);
         }
 
-        async function calculateAndDisplayRoute(start, end) {
-            try {
-                const startLatLng = await getLatLngFromAddress(start);
-                const endLatLng = await getLatLngFromAddress(end);
+         // This function generates a Bezier curve between two points.
+         function getBezierCurvePoints(start, end, offset = 0.2) {
+            const lat1 = start.lat();
+            const lat2 = end.lat();
+            const lng1 = start.lng();
+            const lng2 = end.lng();
 
-                directionsService.route({
-                    origin: startLatLng,
-                    destination: endLatLng,
-                    travelMode: 'DRIVING'
-                }, (response, status) => {
-                    if (status === 'OK') {
-                        const pathCoordinates = [
-                            response.routes[0].legs[0].start_location,
-                            computeControlPoint(response.routes[0].legs[0].start_location, response.routes[0].legs[0].end_location),
-                            response.routes[0].legs[0].end_location
-                        ];
+            const offsetX = (lng2 - lng1) * offset;
+            const offsetY = (lat2 - lat1) * -offset;
 
-                        new google.maps.Polyline({
-                            path: pathCoordinates,
-                            geodesic: false,
-                            strokeColor: '#FF0000',
-                            strokeOpacity: 1.0,
-                            strokeWeight: 2,
-                            map: map
-                        });
-                    } else {
-                        alert('Error: ' + status);
-                    }
-                });
-            } catch (error) {
-                console.error('Error in calculating route:', error);
+            const n = 100;  // number of segments
+            const curveCoords = [];
+
+            for (let i = 0; i <= n; i++) {
+                const t = i / n;
+                const x = Math.pow(1 - t, 2) * lng1 + 2 * (1 - t) * t * (lng1 + offsetX) + Math.pow(t, 2) * lng2;
+                const y = Math.pow(1 - t, 2) * lat1 + 2 * (1 - t) * t * (lat1 + offsetY) + Math.pow(t, 2) * lat2;
+                curveCoords.push({ lat: y, lng: x });
             }
+
+            return curveCoords;
         }
 
+        function calculateAndDisplayRoute(start, end) {
+            // Clear the previous route, if any
+            if (currentPolyline) {
+                currentPolyline.setMap(null);
+            }
+            
+            directionsService.route({
+                origin: start,
+                destination: end,
+                travelMode: 'DRIVING' 
+            }, (response, status) => {
+                if (status === 'OK') {
+                    // Plot the Bezier curve
+                    const startLatLng = new google.maps.LatLng(response.routes[0].legs[0].start_location.lat(), response.routes[0].legs[0].start_location.lng());
+                    const endLatLng = new google.maps.LatLng(response.routes[0].legs[0].end_location.lat(), response.routes[0].legs[0].end_location.lng());
+                    const bezierPath = getBezierCurvePoints(startLatLng, endLatLng);
+                    
+                    currentPolyline = new google.maps.Polyline({
+                        path: bezierPath,
+                        geodesic: true,
+                        strokeColor: '#FF0000',
+                        strokeOpacity: 1.0,
+                        strokeWeight: 2,
+                        map: directionsRenderer.getMap()
+                    });
+                    
+                    // Adjust the viewport of the map to fit the route
+                    const bounds = new google.maps.LatLngBounds();
+                    bounds.extend(startLatLng);
+                    bounds.extend(endLatLng);
+                    directionsRenderer.getMap().fitBounds(bounds);
 
-        function computeControlPoint(startLatLng, endLatLng) {
-            const midLatLng = {
-                lat: (startLatLng.lat + endLatLng.lat) / 2,
-                lng: (startLatLng.lng + endLatLng.lng) / 2
-            };
+                    // If you want to remove the default directions line:
+                    directionsRenderer.setOptions({ suppressPolylines: true });
 
-            const angle = -Math.PI / 2; // -90 degrees
-            const length = 0.3 * haversineDistance(startLatLng.lat, startLatLng.lng, endLatLng.lat, endLatLng.lng) / 100;
+                    // Display route information
+                   // Display route information
+                    const route = response.routes[0].legs[0];
+                    const estimatedTimeContent = 'Estimated Time: ' + route.duration.text + " by car";
 
-            const controlPointLatLng = {
-                lat: midLatLng.lat + length * Math.cos(angle),
-                lng: midLatLng.lng + length * Math.sin(angle)
-            };
+                    if (infoWindow) {
+                        infoWindow.close();
+                    }
 
-            return controlPointLatLng;
+                    infoWindow = new google.maps.InfoWindow({
+                        content: estimatedTimeContent,
+                        position: response.routes[0].legs[0].end_location
+                    });
+
+                    infoWindow.open(directionsRenderer.getMap());
+
+                } else {
+                    // ... (rest of your error handling remains unchanged) ...
+                }
+            });
         }
+
 
         async function getEstimatedFlightTime(start, end) {
             const startCoords = await getLatLngFromAddress(start);
@@ -274,9 +321,9 @@
         }
 
         async function getLatLngFromAddress(address) {
-            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`);
+            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=GOOGLE_MAPS_API_KEY`);
             if (response.data.status === 'OK') {
-                return new google.maps.LatLng(response.data.results[0].geometry.location);
+                return response.data.results[0].geometry.location;
             } else {
                 throw new Error('Failed to get LatLng from address');
             }
@@ -305,6 +352,12 @@
             const averageFlightSpeed = 850; // in km/h
             const time = distance / averageFlightSpeed; // in hours
             return time.toFixed(2) + ' hours';
+        }
+
+        function checkForEnter(event) {
+            if (event.keyCode === 13) {  // 13 is the key code for Enter
+                onCalculateRoute();
+            }
         }
 
 
