@@ -13,6 +13,7 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
+            background-color: #000000;
         }
 
         input, button {
@@ -21,7 +22,7 @@
 
         #estimatedTime {
             display: none; /* Hide it by default */
-            background-color: #333;
+            background-color:  #7851a9;
             color: white;
             padding: 10px;
             text-align: center;
@@ -29,8 +30,19 @@
 
         #map {
             width: 100%;
-            height: calc(100% - 110px);
+            height: calc(100% - 120px);
         }
+        #start, #end, button {
+        background-color: #a58f77; /* muted brown to match the roads */
+        color: white; /* for readable text */
+        border: 1px solid #5c503f; /* rustic brown border */
+        padding: 8px 12px;
+        transition: background-color 0.3s ease-in-out; /* for a smooth hover effect */
+    }
+
+    button:hover {
+        background-color: #8b688f; /* a bit of purple shade for hover effect */
+    }
     </style>
 </head>
 
@@ -38,15 +50,13 @@
 
     <input type="text" id="start" placeholder="Start">
     <input type="text" id="end" placeholder="Destination">
-    <button onclick="onCalculateRoute()">Calculate Route</button>
-
+    <button onclick="onCalculateRoute()">Calculate Route</button> 
     <div id="estimatedTime">Estimated Time: <span id="timeValue">...</span></div>
-    
     <div id="map"></div>
 
     <script>
         let GOOGLE_MAPS_API_KEY;
-        let directionsService, directionsRenderer;
+        let directionsService, directionsRenderer, map;
 
         // Fetch the Google Maps API key from the server
         axios.get('/googlemapskey')
@@ -61,17 +71,141 @@
                 document.body.appendChild(script);
             });
 
+            const dragonLandStyle = [
+            {
+                "featureType": "administrative.locality",
+                "elementType": "labels",
+                "stylers": [
+                    {
+                        "visibility": "off"
+                    }
+                ]
+            }
+,
+            {
+                "featureType": "all",
+                "elementType": "labels.text.fill",
+                "stylers": [
+                    {
+                        "color": "#5c503f" // rustic brown
+                    }
+                ]
+            },
+            {
+                "featureType": "landscape",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#8b688f" // lighter purple
+                    }
+                ]
+            },
+            {
+                "featureType": "poi",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#a78ca1" // muted purple
+                    }
+                ]
+            },
+            {
+                "featureType": "road.highway",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#a58f77" // muted brown
+                    }
+                ]
+            },
+            {
+                "featureType": "road.arterial",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#a58f77" // muted brown
+                    }
+                ]
+            },
+            {
+                "featureType": "road.local",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#a58f77" // muted brown
+                    }
+                ]
+            },
+            {
+                "featureType": "water",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#2c3e50" // dark slate
+                    }
+                ]
+            },
+            {
+                "featureType": "administrative.land_parcel",
+                "elementType": "geometry.stroke",
+                "stylers": [
+                    {
+                        "color": "#d2c2ac" // sandstone for contrast
+                    }
+                ]
+            },
+            {
+                "featureType": "landscape.natural",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#8b688f" // terrain - lighter purple
+                    }
+                ]
+            },
+            {
+                "featureType": "landscape.natural.landcover",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#8b688f" // terrain - lighter purple
+                    }
+                ]
+            },
+            {
+                "featureType": "landscape.natural.terrain",
+                "elementType": "geometry",
+                "stylers": [
+                    {
+                        "color": "#a58f77" // terrain - muted brown
+                    }
+                ]
+            }
+        ];
+
         function initMap() {
-            const center = { lat: -34.397, lng: 150.644 };
+            const center = { lat: 28.5383, lng: -81.3792 };
             const map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 8,
-                center: center
+                center: center,
+                styles: dragonLandStyle,
+                mapTypeId: google.maps.MapTypeId.SATELLITE  // sets the map to SATELLITE view
+                
             });
 
+            // ... Continue with the rest of your initializations ...
+
             directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer();
-            directionsRenderer.setMap(map);
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                draggable: true,
+                map: map,
+                suppressMarkers: true, // This will suppress the default start/end markers.
+                polylineOptions: {
+                    strokeColor: '#FF0000'
+                }
+            });
         }
+
 
         function onCalculateRoute() {
             const start = document.getElementById('start').value;
@@ -79,30 +213,56 @@
             calculateAndDisplayRoute(start, end);
         }
 
-        function calculateAndDisplayRoute(start, end) {
-            directionsService.route({
-                origin: start,
-                destination: end,
-                travelMode: 'DRIVING' 
-            }, (response, status) => {
-                if (status === 'OK') {
-                    directionsRenderer.setDirections(response);
-                    const route = response.routes[0].legs[0];
-                    document.getElementById('timeValue').textContent = route.duration.text + " by car";
-                    document.getElementById('estimatedTime').style.display = "block";
-                } else {
-                    if (status === 'ZERO_RESULTS') {
-                        getEstimatedFlightTime(start, end).then(flightTime => {
-                            document.getElementById('timeValue').textContent = flightTime + " by flight";
-                            document.getElementById('estimatedTime').style.display = "block";
-                        }).catch(error => {
-                            console.error('Error getting estimated flight time:', error);
+        async function calculateAndDisplayRoute(start, end) {
+            try {
+                const startLatLng = await getLatLngFromAddress(start);
+                const endLatLng = await getLatLngFromAddress(end);
+
+                directionsService.route({
+                    origin: startLatLng,
+                    destination: endLatLng,
+                    travelMode: 'DRIVING'
+                }, (response, status) => {
+                    if (status === 'OK') {
+                        const pathCoordinates = [
+                            response.routes[0].legs[0].start_location,
+                            computeControlPoint(response.routes[0].legs[0].start_location, response.routes[0].legs[0].end_location),
+                            response.routes[0].legs[0].end_location
+                        ];
+
+                        new google.maps.Polyline({
+                            path: pathCoordinates,
+                            geodesic: false,
+                            strokeColor: '#FF0000',
+                            strokeOpacity: 1.0,
+                            strokeWeight: 2,
+                            map: map
                         });
                     } else {
-                        window.alert('Directions request failed due to ' + status);
+                        alert('Error: ' + status);
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error('Error in calculating route:', error);
+            }
+        }
+
+
+        function computeControlPoint(startLatLng, endLatLng) {
+            const midLatLng = {
+                lat: (startLatLng.lat + endLatLng.lat) / 2,
+                lng: (startLatLng.lng + endLatLng.lng) / 2
+            };
+
+            const angle = -Math.PI / 2; // -90 degrees
+            const length = 0.3 * haversineDistance(startLatLng.lat, startLatLng.lng, endLatLng.lat, endLatLng.lng) / 100;
+
+            const controlPointLatLng = {
+                lat: midLatLng.lat + length * Math.cos(angle),
+                lng: midLatLng.lng + length * Math.sin(angle)
+            };
+
+            return controlPointLatLng;
         }
 
         async function getEstimatedFlightTime(start, end) {
@@ -114,9 +274,9 @@
         }
 
         async function getLatLngFromAddress(address) {
-            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=YOUR_GOOGLE_MAPS_API_KEY`);
+            const response = await axios.get(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_API_KEY}`);
             if (response.data.status === 'OK') {
-                return response.data.results[0].geometry.location;
+                return new google.maps.LatLng(response.data.results[0].geometry.location);
             } else {
                 throw new Error('Failed to get LatLng from address');
             }
@@ -154,7 +314,7 @@
             .then(response => {
                 const apiKey = response.data.key;
                 const script = document.createElement('script');
-                script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&callback=initMap`;
                 script.async = true;
                 script.defer = true;
                 document.body.appendChild(script);
