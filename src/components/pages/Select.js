@@ -20,7 +20,7 @@ function Select() {
             <div className="carousel-inner">
                 <div className="carousel-item active">
                     <a href="https://example.com/link-for-slide-1" target="_blank" rel="noopener noreferrer">
-                        <img src="https://placekitten.com/640/360" alt="Image 1" width="100%" />
+                        <img src="/images/dragon1.png" alt="Image 1" width="100%" />
                         <div className="carousel-caption">
                             <h3>Cat 1</h3>
                             <p>First cat is majestic!</p>
@@ -29,7 +29,7 @@ function Select() {
                 </div>
                 <div className="carousel-item">
                     <a href="https://example.com/link-for-slide-2" target="_blank" rel="noopener noreferrer">
-                        <img src="https://placekitten.com/641/360" alt="Image 2" width="100%" />
+                        <img src="/images/dragon2.png" alt="Image 2" width="100%" />
                         <div className="carousel-caption">
                             <h3>Cat 2</h3>
                             <p>Second cat looks great!</p>
@@ -38,7 +38,7 @@ function Select() {
                 </div>
                 <div className="carousel-item">
                     <a href="https://example.com/link-for-slide-3" target="_blank" rel="noopener noreferrer">
-                        <img src="https://placekitten.com/642/360" alt="Image 3" width="100%" />
+                        <img src="/images/dragon4.png" alt="Image 3" width="100%" />
                         <div className="carousel-caption">
                             <h3>Cat 3</h3>
                             <p>Third cat is adorable!</p>
